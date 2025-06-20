@@ -2,7 +2,14 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 from numbers import Number
-from sklearn.metrics import roc_curve, precision_recall_curve, auc, confusion_matrix
+from sklearn.metrics import roc_curve, precision_recall_curve, auc, confusion_matrix, f1_score
+
+def generate_predictions(model, X, y, name, path):
+    y = y.astype(int)
+    pred_y = model(X)
+    if len(pred_y.shape) > 1:
+        pred_y = [p[pred_y.shape[1]-1] for p in pred_y]
+    pd.DataFrame({'pred': pred_y, 'truth': y}).to_csv(path + '/' + name + ".csv", index=False)
 
 def generate_results(model, X, y, ax_pr, ax_roc, z_index=0,
     plot_label='Line', plot_color='#000000', draw_roc_diagonal=False,
@@ -30,9 +37,13 @@ def generate_results(model, X, y, ax_pr, ax_roc, z_index=0,
 
     # Confusion Matrix
     sen, spe, ppv, npv = get_confusion_matrix(model, X, y)
-    cols = ['label', 'roc_auc', 'pr_auc', 'sensitivity', 'specificity', 'ppv', 'npv',
+
+    # F1 score
+    f1 = 0 # get_f1_score(model, X, y)
+
+    cols = ['label', 'roc_auc', 'pr_auc', 'f1', 'sensitivity', 'specificity', 'ppv', 'npv',
         'proportion', 'n_diagnosed', 'n_total']
-    output = [plot_label, roc_auc, pr_auc, sen, spe, ppv, npv, baseline, y.sum(), len(y)]
+    output = [plot_label, roc_auc, pr_auc, f1, sen, spe, ppv, npv, baseline, y.sum(), len(y)]
     for i in range(len(output)):
         if isinstance(output[i], Number):
             output[i] = round(output[i], n_digits)
@@ -113,9 +124,15 @@ def generate_results_ci(model, X_list, y, ax_pr, ax_roc, z_index=0,
         npvs.append(npv)
     sen, spe, ppv, npv = np.mean(sens), np.mean(spes), np.mean(ppvs), np.mean(npvs)
 
-    cols = ['label', 'roc_auc', 'pr_auc', 'sensitivity', 'specificity', 'ppv', 'npv',
+    # F1 score
+    f1s = []
+    for i in range(len(X_list)):
+        f1s.append(get_f1_score(model, X_list[i], y))
+    f1 = np.mean(f1s)
+
+    cols = ['label', 'roc_auc', 'pr_auc', 'f1', 'sensitivity', 'specificity', 'ppv', 'npv',
         'proportion', 'n_diagnosed', 'n_total']
-    output = [plot_label, roc_auc, pr_auc, sen, spe, ppv, npv, baseline, y.sum(), len(y)]
+    output = [plot_label, roc_auc, pr_auc, f1, sen, spe, ppv, npv, baseline, y.sum(), len(y)]
     for i in range(len(output)):
         if isinstance(output[i], Number):
             output[i] = round(output[i], n_digits)
@@ -200,3 +217,8 @@ def get_confusion_matrix(model, X, y, sensitivity=0.8):
     npv = tn/(tn+fn) if (tn+fn) != 0 else np.nan
 
     return sen, spe, ppv, npv
+
+def get_f1_score(model, X, y):
+    y = y.astype(int)
+    pred_y = model(X)
+    return f1_score(y, pred_y)

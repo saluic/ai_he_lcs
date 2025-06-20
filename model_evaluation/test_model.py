@@ -3,7 +3,7 @@ from os.path import isfile
 import pandas as pd
 
 from models import Models
-from evaluate import generate_results, generate_results_ci
+from evaluate import generate_predictions, generate_results, generate_results_ci
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -187,6 +187,7 @@ if __name__ == '__main__':
         X = X.dropna(subset=[truth])
         y = X[truth]
         X = X.drop(columns=[truth])
+        predictions = generate_predictions(model, X, y, truth, args.outdir)
         result = generate_results(model, X, y, ax_pr, ax_roc,
             plot_label=f'Year {truth[-1]}',
             plot_color=colors[index % len(colors)],
