@@ -36,14 +36,17 @@ def generate_results(model, X, y, ax_pr, ax_roc, z_index=0,
     ax_roc.legend(loc='lower right', fontsize=7, frameon=False)
 
     # Confusion Matrix
-    sen, spe, ppv, npv = get_confusion_matrix(model, X, y)
+    sen, spe, ppv, npv, cutoff = get_confusion_matrix(model, X, y)
 
     # F1 score
-    f1 = 0 # get_f1_score(model, X, y)
+    f1 = get_f1_score(model, X, y, cutoff)
 
-    cols = ['label', 'roc_auc', 'pr_auc', 'f1', 'sensitivity', 'specificity', 'ppv', 'npv',
-        'proportion', 'n_diagnosed', 'n_total']
-    output = [plot_label, roc_auc, pr_auc, f1, sen, spe, ppv, npv, baseline, y.sum(), len(y)]
+    cols = ['label', 'roc_auc', 'pr_auc', 'f1', 'prob_cutoff', 'sensitivity', 'specificity',
+        'ppv', 'npv', 'proportion', 'n_diagnosed', 'n_total'
+    ]
+    output = [plot_label, roc_auc, pr_auc, f1, cutoff,
+        sen, spe, ppv, npv, baseline, y.sum(), len(y)
+    ]
     for i in range(len(output)):
         if isinstance(output[i], Number):
             output[i] = round(output[i], n_digits)
@@ -115,19 +118,20 @@ def generate_results_ci(model, X_list, y, ax_pr, ax_roc, z_index=0,
     )
 
     # Confusion Matrix
-    sens, spes, ppvs, npvs = [], [], [], []
+    sens, spes, ppvs, npvs, cutoffs = [], [], [], [], []
     for i in range(len(X_list)):
-        sen, spe, ppv, npv = get_confusion_matrix(model, X_list[i], y)
+        sen, spe, ppv, npv, cutoff = get_confusion_matrix(model, X_list[i], y)
         sens.append(sen)
         spes.append(spe)
         ppvs.append(ppv)
         npvs.append(npv)
-    sen, spe, ppv, npv = np.mean(sens), np.mean(spes), np.mean(ppvs), np.mean(npvs)
+        cutoffs.append(cutoff)
+    sen, spe, ppv, npv, cutoff = np.mean(sens), np.mean(spes), np.mean(ppvs), np.mean(npvs), np.mean(cutoff)
 
     # F1 score
     f1s = []
     for i in range(len(X_list)):
-        f1s.append(get_f1_score(model, X_list[i], y))
+        f1s.append(get_f1_score(model, X_list[i], y, cutoffs[i]))
     f1 = np.mean(f1s)
 
     cols = ['label', 'roc_auc', 'pr_auc', 'f1', 'sensitivity', 'specificity', 'ppv', 'npv',
@@ -204,11 +208,16 @@ def get_confusion_matrix(model, X, y, sensitivity=0.8):
     y = y.astype(int)
     pred_y = model(X)
     if len(pred_y.shape) > 1:
-        pred_y = [p[pred_y.shape[1]-1] for p in pred_y]
+        if pred_y.shape[1] > 1:
+            pred_y = pred_y[:, -1]
 
     _, tpr, thresholds = roc_curve(y, pred_y)
     cutoff = thresholds[np.abs(tpr - sensitivity).argmin()]
     decision = [1 if prob >= cutoff else 0 for prob in pred_y]
+
+    if len(pd.unique(y)) == 1:
+        print('Cannot create confusion matrix. Only 1 prediction class present.')
+        return np.nan, np.nan, np.nan, np.nan, np.nan
 
     tn, fp, fn, tp = confusion_matrix(y, decision).ravel()
     sen = tp/(tp+fn) if (tp+fn) != 0 else np.nan
@@ -216,9 +225,17 @@ def get_confusion_matrix(model, X, y, sensitivity=0.8):
     ppv = tp/(tp+fp) if (tp+fp) != 0 else np.nan
     npv = tn/(tn+fn) if (tn+fn) != 0 else np.nan
 
-    return sen, spe, ppv, npv
+    return sen, spe, ppv, npv, cutoff
 
-def get_f1_score(model, X, y):
+def get_f1_score(model, X, y, cutoff):
     y = y.astype(int)
     pred_y = model(X)
-    return f1_score(y, pred_y)
+    if len(pred_y.shape) > 1:
+        if pred_y.shape[1] > 1:
+            pred_y = pred_y[:, -1]
+    decision = [1 if prob >= cutoff else 0 for prob in pred_y]
+    if len(pd.unique(y)) == 1:
+        print('Cannot create confusion matrix. Only 1 prediction class present.')
+        return np.nan
+    _, fp, fn, tp = confusion_matrix(y, decision).ravel()
+    return (2 * tp) / ((2 * tp) + fp + fn)

@@ -1,0 +1,43 @@
+import pandas as pd
+import numpy as np
+
+path = "C:/Users/Abdul Zakkar/Downloads/test_uic_sybilequity.csv"
+
+def main():
+    df = pd.read_csv(path)
+    # print(type(df['gt6'][2]), df['gt6'][2]==np.inf)
+    df = df.replace(np.inf, np.nan)
+    # assert 0==1
+    columns = {
+        "pred1": "pred_yr1",
+        "pred2": "pred_yr2",
+        "pred3": "pred_yr3",
+        "pred4": "pred_yr4",
+        "pred5": "pred_yr5",
+        "pred6": "pred_yr6",
+        "gt1": "canc_yr_1",
+        "gt2": "canc_yr_2",
+        "gt3": "canc_yr_3",
+        "gt4": "canc_yr_4",
+        "gt5": "canc_yr_5",
+        "gt6": "canc_yr_6"
+    }
+    df = df.rename(columns=columns)
+    columns = [
+        "pred_yr1",
+        "pred_yr2",
+        "pred_yr3",
+        "pred_yr4",
+        "pred_yr5",
+        "pred_yr6",
+        "canc_yr_1",
+        "canc_yr_2",
+        "canc_yr_3",
+        "canc_yr_4",
+        "canc_yr_5",
+        "canc_yr_6"
+    ]
+    df = df[columns]
+    df.to_csv("C:/Users/Abdul Zakkar/Downloads/test_uic_sybilequity_.csv", index=False)
+    
+main()
